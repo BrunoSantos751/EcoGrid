@@ -1,5 +1,7 @@
+from src.core.structures.circular_buffer.py import CircularBuffer # type: ignore
+
 class NodeType:
-    """Enumeração para os tipos de nós hierárquicos[cite: 17]."""
+    """Enumeração para os tipos de nós hierárquicos."""
     SUBSTATION = "SUBESTACAO"       # Fonte de energia
     TRANSFORMER = "TRANSFORMADOR"   # Nó intermediário
     CONSUMER = "CONSUMIDOR"         # Ponto final (casas/indústrias)
@@ -24,3 +26,8 @@ class PowerNode:
     def __repr__(self):
         status = "OK" if self.active else "FALHA"
         return f"[{self.type}] ID:{self.id} | Carga: {self.current_load}/{self.max_capacity} | Status: {status}"
+    
+    def update_load(self, new_load: float):
+        """Atualiza a carga atual e registra no histórico."""
+        self.current_load = new_load
+        self.readings_buffer.add(new_load)
