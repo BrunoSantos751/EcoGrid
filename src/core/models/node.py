@@ -17,7 +17,9 @@ class PowerNode:
         self.max_capacity = max_capacity  # Limite físico em kW/kVA 
         self.current_load = 0.0           # Carga atual
         self.active = True                # Simulação de falhas (On/Off) 
-
+        self.x = x  # Coordenada X (ou Latitude)
+        self.y = y  # Coordenada Y (ou Longitude) #"ADICIONEI ESSES DOIS NOVOS ATRIBUTOS PARA CÁLCULO DA HEURISTICA" LUCAS
+        
     @property
     def is_overloaded(self) -> bool:
         """Verifica se o nó está acima da capacidade permitida."""
