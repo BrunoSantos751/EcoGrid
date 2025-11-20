@@ -24,6 +24,6 @@ class EnergyHeuristics:
         dist = EnergyHeuristics.euclidean_distance(current_node, target_node)
         
         # Custo estimado assumindo o cenário ideal de transmissão
-        estimated_cost = (dist * EnergyHeuristics.MIN_RESISTANCE_PER_KM) / EnergyHeuristics.MAX_EFFICIENCY
+        estimated_loss = (dist * EnergyHeuristics.MIN_RESISTANCE_PER_KM) / EnergyHeuristics.MAX_EFFICIENCY
         
-        return estimated_cost
+        return estimated_loss
