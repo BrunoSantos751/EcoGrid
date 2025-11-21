@@ -13,10 +13,10 @@ class EcoGridGraph:
         # Lista de Adjacência para as conexões: {id: [PowerLine, ...]}
         self.adj_list: Dict[int, List[PowerLine]] = {}
 
-    def add_node(self, node_id: int, node_type: str, max_capacity: float, x: float = 0, y: float = 0) -> PowerNode:
+    def add_node(self, node_id: int, node_type: str, max_capacity: float, x: float = 0, y: float = 0, efficiency: float = 0.98) -> PowerNode:
         """Adiciona um nó ao grafo se ele não existir."""
         if node_id not in self.nodes:
-            new_node = PowerNode(node_id, node_type, max_capacity, x, y)
+            new_node = PowerNode(node_id, node_type, max_capacity, x, y, efficiency)
             self.nodes[node_id] = new_node
             self.adj_list[node_id] = [] # Inicializa lista de vizinhos vazia
             return new_node
