@@ -1,4 +1,3 @@
-# src/core/simulation/event_queue.py
 import heapq
 from collections import deque
 from datetime import datetime
