@@ -1,4 +1,3 @@
-# tests/test_simulation_queue.py
 import sys
 import os
 import time

@@ -1,4 +1,3 @@
-# tests/test_algo_neural_net.py
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -14,7 +13,6 @@ def test_hybrid_prediction():
     # A Regressão Linear seria ruim aqui (daria uma média reta de 300).
     # A Rede Neural deve capturar que depois de 100 vem 500.
     history = [100.0, 500.0, 100.0, 500.0, 100.0, 500.0, 100.0] 
-    # O próximo (índice 7) deve ser 500.0
     
     print(f"Histórico de treino: {history}")
     predictor.fit(history)

@@ -1,4 +1,3 @@
-# tests/test_single_file.py
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -7,50 +6,78 @@ from src.core.models.graph import EcoGridGraph
 from src.core.models.node import NodeType
 from src.core.persistence.manager import PersistenceManager
 
-def test_single_file_persistence():
-    db_path = "data/ecogrid_master_test.db"
+def test_separated_files():
+    path_topo = "data/test_topo.pkl"
+    path_hist = "data/test_hist.db"
     
-    # Limpa teste anterior
-    if os.path.exists(db_path):
-        os.remove(db_path)
-        
-    print("--- Fase 1: Criando Rede e Salvando ---")
+    # Limpa testes anteriores
+    if os.path.exists(path_topo): os.remove(path_topo)
+    if os.path.exists(path_hist): os.remove(path_hist)
+    
+    print("\n=== INICIANDO TESTE DIDÁTICO DE PERSISTÊNCIA SEGREGADA ===")
+    
+    # --- FASE 1 ---
+    print("\n--- [FASE 1] Criação e Salvamento ---")
     graph = EcoGridGraph()
-    n1 = graph.add_node(1, NodeType.CONSUMER, 100)
-    n2 = graph.add_node(2, NodeType.CONSUMER, 100)
+    print("1. Grafo vazio instanciado.")
     
-    # Inserindo dados
+    n1 = graph.add_node(1, NodeType.CONSUMER, 100, x=10, y=10)
+    print(f"2. Nó 1 (Consumidor) adicionado em (10, 10).")
+    
+    # Gera dado histórico
+    print("3. Simulando leitura de sensor: Carga = 50.0 kW")
     n1.update_load(50.0)
-    n2.update_load(80.0)
     
-    # Salvando TUDO no arquivo único
-    PersistenceManager.save_all(graph, filepath=db_path)
-    print("Snapshot salvo em arquivo único.")
+    # Salva em dois arquivos
+    print(f"4. Salvando arquivo de TOPOLOGIA (Mapa) em: {path_topo}")
+    PersistenceManager.save_topology(graph, filepath=path_topo)
+    
+    print(f"5. Salvando arquivo de HISTÓRICO (Dados) em: {path_hist}")
+    PersistenceManager.save_history(graph, filepath=path_hist)
+    
+    assert os.path.exists(path_topo)
+    assert os.path.exists(path_hist)
+    print(">> Checkpoint: Arquivos físicos criados com sucesso.")
 
-    print("\n--- Fase 2: Carregando em nova sessão ---")
-    new_graph = EcoGridGraph()
-    new_graph.add_node(1, NodeType.CONSUMER, 100) # Recria estrutura
-    new_graph.add_node(2, NodeType.CONSUMER, 100)
+    # --- FASE 2 ---
+    print("\n--- [FASE 2] Carregando Apenas o Mapa (Topologia) ---")
+    graph2 = EcoGridGraph()
+    print(f"1. Novo Grafo instanciado. Nós atuais: {len(graph2.nodes)}")
     
-    # Carrega do arquivo único
-    PersistenceManager.load_all(new_graph, filepath=db_path)
+    PersistenceManager.load_topology(graph2, filepath=path_topo)
+    print(f"2. Topologia carregada. Nós atuais: {len(graph2.nodes)}")
     
-    # Verifica se os dados voltaram para os nós certos
-    hist_n1 = new_graph.get_node(1).storage_tree.range_search(0, 10)
-    hist_n2 = new_graph.get_node(2).storage_tree.range_search(0, 10)
+    # Deve ter o nó 1 (Estrutura)
+    node_recuperado = graph2.get_node(1)
+    assert node_recuperado is not None
+    print(f"3. Nó 1 recuperado com sucesso: {node_recuperado}")
     
-    print(f"Nó 1 recuperou: {hist_n1}")
-    print(f"Nó 2 recuperou: {hist_n2}")
+    # Mas NÃO deve ter o histórico (Dados)
+    print("4. Verificando memória do Nó 1 (Esperado: Vazio)...")
+    hist_vazio = node_recuperado.storage_tree.range_search(0, 10)
+    print(f"   -> Conteúdo encontrado: {hist_vazio}")
     
-    assert 50.0 in hist_n1
-    assert 80.0 in hist_n2
+    assert len(hist_vazio) == 0, "O histórico não deveria carregar com a topologia!"
+    print(">> Checkpoint: Estrutura existe, mas está 'oca' (sem dados históricos).")
     
-    print(">> SUCESSO: Tudo salvo em um único arquivo .db!")
+    # --- FASE 3 ---
+    print("\n--- [FASE 3] Injetando o Histórico ---")
+    PersistenceManager.load_history(graph2, filepath=path_hist)
+    print("1. Arquivo de histórico carregado e processado.")
     
-    # Limpeza (Opcional)
-    if os.path.exists(db_path):
-        #pass
-        os.remove(db_path)
+    # Agora o dado deve aparecer
+    print("2. Verificando memória do Nó 1 novamente (Esperado: [50.0])...")
+    hist_cheio = graph2.get_node(1).storage_tree.range_search(0, 10)
+    print(f"   -> Conteúdo encontrado: {hist_cheio}")
+    
+    assert 50.0 in hist_cheio
+    print(">> Checkpoint: Dados históricos foram conectados ao nó corretamente.")
+    
+    print("\n=== SUCESSO TOTAL: O sistema montou o grafo e depois preencheu os dados ===")
+    
+    # Limpeza (Comentada para você poder ver os arquivos se quiser)
+    #if os.path.exists(path_topo): os.remove(path_topo)
+    #if os.path.exists(path_hist): os.remove(path_hist)
 
 if __name__ == "__main__":
-    test_single_file_persistence()
+    test_separated_files()

@@ -1,4 +1,3 @@
-# src/core/algorithms/neural_net.py
 import math
 import random
 from typing import List

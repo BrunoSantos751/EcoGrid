@@ -1,4 +1,3 @@
-# src/core/models/node.py
 from src.core.structures.b_plus_tree import BPlusTree
 from src.core.structures.circular_buffer import CircularBuffer
 
@@ -26,11 +25,8 @@ class PowerNode:
         self.readings_buffer = CircularBuffer(capacity=24)
         
         # Memória de Longo Prazo (B+ Tree)
-        # CORREÇÃO AQUI: Removemos 'filepath=db_filename'. 
-        # A árvore agora é apenas uma estrutura na memória.
         # O salvamento será feito externamente pelo PersistenceManager.
         self.storage_tree = BPlusTree(order=4) 
-        
         self.internal_clock = 0
 
     @property
