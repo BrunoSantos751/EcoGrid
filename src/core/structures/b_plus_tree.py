@@ -1,33 +1,69 @@
 # src/core/structures/b_plus_tree.py
+import pickle
+import os
 from typing import List, Any, Optional
 
 class BPlusNode:
     """
-    Nó da Árvore B+. Pode ser interno (índices) ou folha (dados reais).
+    Nó da Árvore B+.
+    - Se folha: 'children' contém os valores (dados).
+    - Se interno: 'children' contém referências para outros BPlusNode.
     """
     def __init__(self, is_leaf: bool = False):
         self.is_leaf = is_leaf
         self.keys = []
-        self.children = []  # Se interno: Lista de BPlusNode. Se folha: Lista de valores (DataPoints)
-        self.next_leaf = None  # Ponteiro para a próxima folha (Lista Ligada)
+        self.children = [] 
+        self.next_leaf = None 
 
 class BPlusTree:
     """
-    Implementação in-memory de uma Árvore B+.
-    Propriedades chave:
-    1. Dados apenas nas folhas.
-    2. Folhas conectadas (Range Query eficiente).
-    3. Auto-balanceada via split (cresce para cima).
+    Implementação robusta de Árvore B+ com Persistência Real em Disco.
+    Atende Issue #5.
     """
-    def __init__(self, order: int = 4):
+    def __init__(self, order: int = 4, filepath: str = "ecogrid_data.db"):
         self.root = BPlusNode(is_leaf=True)
-        self.order = order  # Fator de ramificação (máximo de filhos)
+        self.order = order
+        self.filepath = filepath
+        
+        # Tenta carregar dados existentes ao iniciar
+        self.load_from_disk()
+
+    def save_to_disk(self):
+        """Salva o estado atual da árvore no arquivo."""
+        try:
+            # Garante que o diretório existe antes de salvar
+            directory = os.path.dirname(self.filepath)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory)
+
+            with open(self.filepath, 'wb') as f:
+                data = {
+                    'order': self.order,
+                    'root': self.root
+                }
+                pickle.dump(data, f)
+        except Exception as e:
+            print(f"[IO Erro] Falha ao salvar no disco: {e}")
+
+    def load_from_disk(self):
+        """Carrega a árvore do arquivo se existir."""
+        if not os.path.exists(self.filepath):
+            return 
+            
+        try:
+            with open(self.filepath, 'rb') as f:
+                data = pickle.load(f)
+                self.order = data['order']
+                self.root = data['root']
+            # print(f"[IO] Dados carregados de {self.filepath}")
+        except Exception as e:
+            print(f"[IO Erro] Falha ao carregar (iniciando vazio): {e}")
 
     def insert(self, key: float, value: Any):
-        """Insere um par chave(timestamp)/valor(carga)."""
+        """Insere um par chave/valor e persiste no disco."""
         root = self.root
         
-        # Se a raiz encher, divide e cria nova raiz
+        # Lógica de split da raiz
         if len(root.keys) == self.order - 1:
             new_root = BPlusNode(is_leaf=False)
             new_root.children.append(self.root)
@@ -36,68 +72,73 @@ class BPlusTree:
             self._insert_non_full(new_root, key, value)
         else:
             self._insert_non_full(root, key, value)
+            
+        # WRITE-THROUGH: Salva imediatamente após a inserção
+        self.save_to_disk()
 
     def _insert_non_full(self, node: BPlusNode, key: float, value: Any):
-        i = len(node.keys) - 1
-        
         if node.is_leaf:
             # Inserção ordenada na folha
-            node.keys.append(None)
-            node.children.append(None)
-            while i >= 0 and key < node.keys[i]:
-                node.keys[i + 1] = node.keys[i]
-                node.children[i + 1] = node.children[i]
-                i -= 1
-            node.keys[i + 1] = key
-            node.children[i + 1] = value
-        else:
-            # Busca o filho correto
-            while i >= 0 and key < node.keys[i]:
-                i -= 1
-            i += 1
+            pos = 0
+            while pos < len(node.keys) and key > node.keys[pos]:
+                pos += 1
             
-            if len(node.children[i].keys) == self.order - 1:
-                self._split_child(node, i)
-                if key > node.keys[i]:
-                    i += 1
-            self._insert_non_full(node.children[i], key, value)
+            node.keys.insert(pos, key)
+            node.children.insert(pos, value)
+            
+        else:
+            # Nó interno
+            pos = 0
+            while pos < len(node.keys) and key > node.keys[pos]:
+                pos += 1
+            
+            if len(node.children[pos].keys) == self.order - 1:
+                self._split_child(node, pos)
+                if key > node.keys[pos]:
+                    pos += 1
+            
+            self._insert_non_full(node.children[pos], key, value)
 
     def _split_child(self, parent: BPlusNode, index: int):
-        """Divide um nó cheio e sobe a mediana para o pai."""
         node_to_split = parent.children[index]
-        mid_point = (self.order - 1) // 2
+        mid_point = len(node_to_split.keys) // 2
         
         new_node = BPlusNode(is_leaf=node_to_split.is_leaf)
         
-        # Move chaves/filhos para o novo nó
-        parent.keys.insert(index, node_to_split.keys[mid_point])
-        parent.children.insert(index + 1, new_node)
-        
-        new_node.keys = node_to_split.keys[mid_point + 1:]
-        node_to_split.keys = node_to_split.keys[:mid_point]
-        
         if node_to_split.is_leaf:
-            # Se for folha, mantém a chave mediana na direita (duplicação) e copia valores
-            new_node.children = node_to_split.children[mid_point + 1:]
-            node_to_split.children = node_to_split.children[:mid_point + 1]
-            node_to_split.keys.append(parent.keys[index]) # Bota de volta na folha
-            new_node.children.insert(0, node_to_split.children.pop()) # Ajusta valor
+            # Split de Folha
+            new_node.keys = node_to_split.keys[mid_point:]
+            new_node.children = node_to_split.children[mid_point:] 
             
-            # Linkagem das folhas
+            node_to_split.keys = node_to_split.keys[:mid_point]
+            node_to_split.children = node_to_split.children[:mid_point]
+            
+            # Sobe a chave (cópia)
+            promoted_key = new_node.keys[0]
+            
+            parent.keys.insert(index, promoted_key)
+            parent.children.insert(index + 1, new_node)
+            
+            # Lista ligada
             new_node.next_leaf = node_to_split.next_leaf
             node_to_split.next_leaf = new_node
+            
         else:
-            # Se interno, move filhos
+            # Split Interno
+            promoted_key = node_to_split.keys[mid_point]
+            
+            new_node.keys = node_to_split.keys[mid_point + 1:]
             new_node.children = node_to_split.children[mid_point + 1:]
+            
+            node_to_split.keys = node_to_split.keys[:mid_point]
             node_to_split.children = node_to_split.children[:mid_point + 1]
+            
+            parent.keys.insert(index, promoted_key)
+            parent.children.insert(index + 1, new_node)
 
     def range_search(self, start_key: float, end_key: float) -> List[Any]:
-        """
-        Busca todos os valores cujas chaves estão entre start e end.
-        """
+        """Busca intervalo e retorna valores."""
         results = []
-        
-        # 1. Desce até a folha correta
         current = self.root
         while not current.is_leaf:
             i = 0
@@ -105,15 +146,13 @@ class BPlusTree:
                 i += 1
             current = current.children[i]
             
-        # 2. Percorre a lista ligada horizontalmente
         while current:
             for i, key in enumerate(current.keys):
                 if key >= start_key:
                     if key <= end_key:
-                        results.append(current.children[i])
+                        if i < len(current.children):
+                            results.append(current.children[i])
                     else:
-                        # Passou do limite final, pode parar tudo
                         return results
             current = current.next_leaf
-            
         return results
