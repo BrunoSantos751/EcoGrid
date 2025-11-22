@@ -1,40 +1,56 @@
+# tests/test_single_file.py
 import sys
 import os
-import shutil
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.core.structures.b_plus_tree import BPlusTree
 
-def test_disk_persistence():
-    db_path = "test_persistence.db"
+from src.core.models.graph import EcoGridGraph
+from src.core.models.node import NodeType
+from src.core.persistence.manager import PersistenceManager
+
+def test_single_file_persistence():
+    db_path = "data/ecogrid_master_test.db"
     
     # Limpa teste anterior
     if os.path.exists(db_path):
         os.remove(db_path)
+        
+    print("--- Fase 1: Criando Rede e Salvando ---")
+    graph = EcoGridGraph()
+    n1 = graph.add_node(1, NodeType.CONSUMER, 100)
+    n2 = graph.add_node(2, NodeType.CONSUMER, 100)
+    
+    # Inserindo dados
+    n1.update_load(50.0)
+    n2.update_load(80.0)
+    
+    # Salvando TUDO no arquivo único
+    PersistenceManager.save_all(graph, filepath=db_path)
+    print("Snapshot salvo em arquivo único.")
 
-    print("--- Fase 1: Escrevendo dados e fechando programa ---")
-    tree = BPlusTree(order=4, filepath=db_path)
-    tree.insert(10, "Dado Importante 1")
-    tree.insert(20, "Dado Importante 2")
-    print("Dados inseridos na árvore. Objeto será destruído.")
-    del tree # Deleta da memória RAM
-
-    print("\n--- Fase 2: Reiniciando do zero (Lendo do Disco) ---")
-    new_tree = BPlusTree(order=4, filepath=db_path)
+    print("\n--- Fase 2: Carregando em nova sessão ---")
+    new_graph = EcoGridGraph()
+    new_graph.add_node(1, NodeType.CONSUMER, 100) # Recria estrutura
+    new_graph.add_node(2, NodeType.CONSUMER, 100)
     
-    # Se a persistência funcionar, o range_search vai achar os dados
-    results = new_tree.range_search(0, 30)
-    print(f"Dados recuperados do disco: {results}")
+    # Carrega do arquivo único
+    PersistenceManager.load_all(new_graph, filepath=db_path)
     
-    assert "Dado Importante 1" in results
-    assert "Dado Importante 2" in results
+    # Verifica se os dados voltaram para os nós certos
+    hist_n1 = new_graph.get_node(1).storage_tree.range_search(0, 10)
+    hist_n2 = new_graph.get_node(2).storage_tree.range_search(0, 10)
     
-    print(">> SUCESSO: Os dados sobreviveram ao desligamento do programa!")
+    print(f"Nó 1 recuperou: {hist_n1}")
+    print(f"Nó 2 recuperou: {hist_n2}")
     
-    # Limpeza
+    assert 50.0 in hist_n1
+    assert 80.0 in hist_n2
+    
+    print(">> SUCESSO: Tudo salvo em um único arquivo .db!")
+    
+    # Limpeza (Opcional)
     if os.path.exists(db_path):
         #pass
-        os.remove(db_path) #remove o arquivo de teste (cuidados com arquivos reais)
+        os.remove(db_path)
 
 if __name__ == "__main__":
-    test_disk_persistence()
+    test_single_file_persistence()
