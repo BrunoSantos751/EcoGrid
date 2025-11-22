@@ -9,7 +9,6 @@ class NodeType:
 class PowerNode:
     """
     Nó da rede elétrica.
-    Versão Limpa para Arquivo Único: Não gerencia arquivos individuais.
     """
     def __init__(self, node_id: int, node_type: str, max_capacity: float, x: float = 0.0, y: float = 0.0, efficiency: float = 0.98):
         self.id = node_id
