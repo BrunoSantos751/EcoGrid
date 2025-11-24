@@ -1,3 +1,0 @@
-# Ecogrid
-
-Em desenvolvimento
