@@ -30,6 +30,7 @@ class GridSimulator:
         # 2. Inteligência (Instanciados após carregar o grafo)
         self.balancer = LoadBalancer(self.graph, self.avl)
         self.monitor = PreventiveMonitor(self.graph)
+        self.enable_noise = True
         
         # 3. Estado da Simulação
         self.time_tick = 0
@@ -114,7 +115,8 @@ class GridSimulator:
         # self.log(f"--- Tick {self.time_tick} ---") # Comentei para não poluir o log visual
         
         # 1. Simular o Mundo (Cargas variando)
-        self._simulate_random_fluctuations()
+        if self.enable_noise:
+            self._simulate_random_fluctuations()
         
         # 2. IA Preventiva (Roda a cada 5 ticks)
         if self.time_tick % 5 == 0:
@@ -130,28 +132,37 @@ class GridSimulator:
             self._handle_event(event)
             processed_count += 1
 
+        for lines in self.graph.adj_list.values():
+            for line in lines:
+                if line.current_flow > 1.0:
+                    line.current_flow *= 0.7 # Reduz 30% a cada tick
+                else:
+                    line.current_flow = 0.0
+
         # 4. Persistência Automática (Apenas histórico, a cada 10 ticks)
         #if self.time_tick % 10 == 0:
             #PersistenceManager.save_history(self.graph)
 
     def _simulate_random_fluctuations(self):
-        """Gera dados para os sensores (Consumidores variam, Infra tem carga base)."""
+        """Gera dados para os sensores."""
         for node in self.graph.nodes.values():
             if not node.active:
                 continue
 
             if node.type == NodeType.CONSUMER:
-                # Consumidores variam +/- 5%
                 variation = random.uniform(0.95, 1.05)
                 new_load = max(0, node.current_load * variation)
-                if new_load == 0: new_load = random.uniform(10, 20) # Kickstart
+                # Kickstart apenas se estiver ativo e zerado
+                if new_load == 0 and node.active: 
+                    new_load = random.uniform(10, 20)
                 node.update_load(new_load)
             
             else:
-                # Infraestrutura (Transf/Sub) também oscila levemente (para gerar histórico)
+                # Infraestrutura
                 fake_base = 500 if node.type == NodeType.TRANSFORMER else 5000
+                # Se carga atual for 0 (mas ativo), usa base. Se tiver carga (recebida de vizinho), varia ela.
                 current = node.current_load if node.current_load > 0 else fake_base
-                variation = random.uniform(0.99, 1.01) # Oscilação menor (estável)
+                variation = random.uniform(0.99, 1.01)
                 node.update_load(current * variation)
 
     def _handle_event(self, event: GridEvent):
@@ -171,15 +182,81 @@ class GridSimulator:
                 self.log(f"ALERTA: Nó {node.id} OFF-LINE! Recalculando rotas...")
 
     def inject_failure(self, node_id: int):
-        """Simula uma falha manual (Botão da UI)."""
-        event = GridEvent(
-            priority=PriorityLevel.CRITICAL, 
-            event_type=EventType.NODE_FAILURE, 
-            node_id=node_id, 
-            timestamp= datetime.now(),
-            payload="Simulação Manual"
-        )
-        self.event_queue.push(event)
+        """
+        Simula uma falha manual com Failover.
+        CORRIGIDO: Zera a carga do nó morto preventivamente para evitar loops.
+        """
+        node = self.graph.get_node(node_id)
+        
+        # Se já está morto, não faz nada (evita double-kill e duplicação de carga)
+        if not node or not node.active:
+            return
+
+        # 1. Captura a carga ANTES de matar
+        orphan_load = node.current_load
+        
+        # 2. Mata o nó IMEDIATAMENTE
+        node.active = False
+        node.current_load = 0.0 # Zera para garantir que ninguém leia valor velho
+        
+        self.log(f"ALERTA CRÍTICO: Nó {node.id} falhou! {orphan_load:.1f}kW buscando caminho...")
+
+        # 3. Redistribuição (Failover)
+        neighbors_edges = self.graph.get_neighbors(node_id)
+        active_neighbors = []
+        
+        for edge in neighbors_edges:
+            nid = edge.target if edge.source == node_id else edge.source
+            neighbor = self.graph.get_node(nid)
+            if neighbor and neighbor.active:
+                active_neighbors.append(neighbor)
+        
+        if active_neighbors:
+            # Divide a carga entre os sobreviventes
+            split_load = orphan_load / len(active_neighbors)
+            
+            for nb in active_neighbors:
+                # Aumenta a carga do vizinho
+                nb.update_load(nb.current_load + split_load)
+                
+                self.log(f" > Vizinho {nb.id} absorveu {split_load:.1f}kW (Novo total: {nb.current_load:.1f})")
+                
+                # Gera evento de alerta para o vizinho se reequilibrar depois
+                evt = GridEvent(
+                    priority=PriorityLevel.CRITICAL,
+                    timestamp=datetime.now(),
+                    event_type=EventType.OVERLOAD_WARNING,
+                    node_id=nb.id,
+                    payload={'predicted_load': nb.current_load, 'msg': 'Sobrecarga por Falha Vizinha'}
+                )
+                self.event_queue.push(evt)
+        else:
+            self.log(f"BLACKOUT LOCAL: Nó {node.id} isolado. Carga perdida.")
+
+    def inject_manual_load(self, node_id: int, new_load: float):
+        """
+        Aplica uma carga manualmente via interface.
+        Atualiza o estado físico imediatamente, mas deixa a LÓGICA (Balanceamento) para o loop.
+        """
+        node = self.graph.get_node(node_id)
+        if node:
+            # 1. Atualização Física (Visual)
+            # O nó vai ficar vermelho na UI imediatamente se passar do limite
+            node.update_load(new_load)
+            
+            self.log(f"MANUAL: Carga do Nó {node_id} definida para {new_load:.1f}kW. (Aguardando Simulação...)")
+            
+            # 2. Agendamento Lógico
+            # Cria um evento e põe na fila.
+            # O balanceador SÓ vai rodar quando o step() processar esse evento.
+            evt = GridEvent(
+                priority=PriorityLevel.HIGH,
+                timestamp=datetime.now(),
+                event_type=EventType.OVERLOAD_WARNING, # Tratamos como um alerta de sobrecarga
+                node_id=node_id,
+                payload={'predicted_load': new_load, 'msg': 'Sobrecarga Manual'}
+            )
+            self.event_queue.push(evt)
 
     def save_state_manual(self):
         """Salva tudo forçado (Botão Salvar)."""

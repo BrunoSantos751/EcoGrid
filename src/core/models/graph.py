@@ -41,6 +41,14 @@ class EcoGridGraph:
     def get_neighbors(self, node_id: int) -> List[PowerLine]:
         """Retorna todas as linhas conectadas a um nó específico."""
         return self.adj_list.get(node_id, [])
+    
+    def get_edge_obj(self, u_id: int, v_id: int):
+        """Retorna o objeto PowerLine que conecta U e V."""
+        if u_id in self.adj_list:
+            for line in self.adj_list[u_id]:
+                if line.target == v_id:
+                    return line
+        return None
 
     def get_node(self, node_id: int) -> PowerNode:
         """Recupera um objeto PowerNode pelo ID."""

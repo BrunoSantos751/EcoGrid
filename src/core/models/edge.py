@@ -8,6 +8,7 @@ class PowerLine:
         self.distance = distance_km
         self.resistance = resistance_ohm
         self.efficiency = efficiency # Eficiência de 0.0 a 1.0
+        self.current_flow = 0.0
 
     @property
     def weight(self) -> float:
@@ -22,4 +23,4 @@ class PowerLine:
         return (self.distance * self.resistance) / self.efficiency
 
     def __repr__(self):
-        return f"Linha {self.source}<->{self.target} (Peso: {self.weight:.2f})"
+        return f"Linha {self.source}<->{self.target} (Flow: {self.current_flow})"
