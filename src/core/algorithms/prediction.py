@@ -9,8 +9,6 @@ class DemandPredictor:
     Seleciona dinamicamente o melhor modelo baseado no erro histórico (MSE).
     """
     def __init__(self):
-        # Semente para garantir que testes sejam reprodutíveis
-        random.seed(42)
         
         # Modelo 1: Regressão Linear
         self.slope = 0.0
@@ -59,7 +57,7 @@ class DemandPredictor:
         max_val = max(historical_data) if max(historical_data) > 0 else 1.0
         scale = 1.0 / (max_val * 1.2) # Margem de 20% para extrapolação
 
-        epochs = 2000
+        epochs = 200
         
         # Dados preparados
         windows = []

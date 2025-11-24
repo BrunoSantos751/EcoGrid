@@ -65,9 +65,13 @@ class GridSimulator:
 
     def _sync_avl_from_graph(self):
         """Reinsere os nós do grafo carregado na árvore AVL para buscas rápidas."""
+        self.log("Sincronizando AVL com o Grafo carregado...")
         self.avl = AVLTree() # Limpa a árvore atual
+        count = 0
         for node in self.graph.nodes.values():
-            self.avl.insert(node.id, node)
+            self.avl.insert(int(node.id), node)
+            count += 1
+        self.log(f"AVL Sincronizada: {count} nós indexados.")
 
     def _create_hardcoded_scenario(self):
         """Criação manual do cenário (executado apenas na primeira vez)."""
@@ -127,8 +131,8 @@ class GridSimulator:
             processed_count += 1
 
         # 4. Persistência Automática (Apenas histórico, a cada 10 ticks)
-        if self.time_tick % 10 == 0:
-            PersistenceManager.save_history(self.graph)
+        #if self.time_tick % 10 == 0:
+            #PersistenceManager.save_history(self.graph)
 
     def _simulate_random_fluctuations(self):
         """Gera dados para os sensores (Consumidores variam, Infra tem carga base)."""
