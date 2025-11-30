@@ -13,7 +13,12 @@ class CircularBuffer:
         self.buffer: List[Optional[Any]] = [None] * capacity
         self.head = 0        # Onde o próximo item será escrito
         self.size = 0        # Quantos itens temos atualmente
-        self.is_full = False # Flag para indicar se já demos a volta
+        self._is_full = False # Flag para indicar se já demos a volta
+    
+    @property
+    def is_full(self) -> bool:
+        """Retorna True se o buffer está cheio."""
+        return self._is_full
 
     def add(self, item: Any):
         """
@@ -25,10 +30,10 @@ class CircularBuffer:
         # Avança o ponteiro circularmente
         self.head = (self.head + 1) % self.capacity
         
-        if not self.is_full:
+        if not self._is_full:
             self.size += 1
             if self.size == self.capacity:
-                self.is_full = True
+                self._is_full = True
 
     def get_latest(self) -> Optional[Any]:
         """Retorna o último item inserido (O(1))."""
