@@ -5,12 +5,10 @@ from src.core.models.graph import EcoGridGraph
 
 class PersistenceManager:
     """
-    Gerenciador de Persistência Separada:
+    Gerenciador de Persistência:
     1. Topologia (Estrutura da Rede, Posições, Conexões)
-    2. Histórico (Dados de Consumo/B+ Trees)
     """
     PATH_TOPOLOGY = "data/network_topology.pkl"
-    PATH_HISTORY = "data/network_history.db"
 
     # --- PARTE 1: TOPOLOGIA (O Grafo) ---
     
@@ -18,7 +16,6 @@ class PersistenceManager:
     def save_topology(graph: EcoGridGraph, filepath: str = PATH_TOPOLOGY):
         """
         Salva apenas a definição estrutural da rede.
-        Não salva os objetos B+ Tree pesados.
         """
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         
@@ -107,39 +104,3 @@ class PersistenceManager:
         except Exception as e:
             print(f"[Topologia Erro] Arquivo corrompido: {e}")
             return False
-
-    # --- PARTE 2: HISTÓRICO (Os Dados) ---
-
-    @staticmethod
-    def save_history(graph: EcoGridGraph, filepath: str = PATH_HISTORY):
-        """Salva apenas as árvores B+."""
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        
-        history_data = {}
-        for node_id, node in graph.nodes.items():
-            history_data[node_id] = node.storage_tree
-            
-        try:
-            with open(filepath, 'wb') as f:
-                pickle.dump(history_data, f)
-        except Exception as e:
-            print(f"[Historico Erro] Falha ao salvar: {e}")
-
-    @staticmethod
-    def load_history(graph: EcoGridGraph, filepath: str = PATH_HISTORY):
-        """Carrega as árvores e anexa aos nós existentes."""
-        if not os.path.exists(filepath):
-            return
-
-        try:
-            with open(filepath, 'rb') as f:
-                history_data = pickle.load(f)
-                
-            count = 0
-            for node_id, tree in history_data.items():
-                node = graph.get_node(node_id)
-                if node:
-                    node.storage_tree = tree
-                    count += 1
-        except Exception as e:
-            print(f"[Historico Erro] Falha ao carregar: {e}")

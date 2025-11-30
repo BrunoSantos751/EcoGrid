@@ -16,7 +16,6 @@ class EnergyRouter:
         Args:
             verbose: Se True, imprime o passo a passo da decisão.
         """
-        # 1. Validar nós
         start_node = self.graph.get_node(start_node_id)
         target_node = self.graph.get_node(target_node_id)
         
@@ -29,7 +28,6 @@ class EnergyRouter:
             dist_geo = EnergyHeuristics.euclidean_distance(start_node, target_node)
             print(f"[A* INFO] Distância Euclidiana direta: {dist_geo:.2f} km")
 
-        # 2. Estruturas de Dados
         open_set = []
         heapq.heappush(open_set, (0.0, start_node_id))
         came_from: Dict[int, int] = {}
@@ -38,33 +36,26 @@ class EnergyRouter:
         g_score[start_node_id] = 0.0
 
         f_score: Dict[int, float] = {node_id: float('inf') for node_id in self.graph.nodes}
-        
         h_start = EnergyHeuristics.calculate_h(start_node, target_node)
         f_score[start_node_id] = h_start
 
-        # 3. Loop Principal
         while open_set:
             current_f, current_id = heapq.heappop(open_set)
 
             if verbose:
                 print(f"\n  > Explorando Nó {current_id} (f_score atual: {current_f:.4f})")
 
-            # Se chegamos ao destino
             if current_id == target_node_id:
                 if verbose: print(f"[A* SUCCESS] Destino {target_node_id} alcançado!")
                 return self._reconstruct_path(came_from, current_id)
 
-            # Explorar vizinhos
             neighbors_edges = self.graph.get_neighbors(current_id)
             
             for edge in neighbors_edges:
                 neighbor_id = edge.target if edge.source == current_id else edge.source
-                
-                # Custo tentativo = Custo até aqui (g) + Peso da aresta (W)
                 tentative_g_score = g_score[current_id] + edge.weight
 
                 if tentative_g_score < g_score[neighbor_id]:
-                    # Melhor caminho encontrado!
                     came_from[neighbor_id] = current_id
                     g_score[neighbor_id] = tentative_g_score
                     
