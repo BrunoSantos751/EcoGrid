@@ -25,14 +25,11 @@ O sistema é dividido em camadas distintas para garantir a separação de respon
   * **GridSimulator:** Orquestra toda a simulação.
   * **Load Balancer:** Redistribui carga entre nós.
   * **EnergyRouter:** Encontra rotas ótimas com algoritmo A\*.
-  * **Preventive Monitor:** IA Preditiva.
-  * **Demand Predictor:** MLP + Regressão Linear.
 
 ### Camada de Estruturas
 
   * **EcoGridGraph:** Representação da Rede.
       * *AVLTree:* Índice para buscas $O(\log n)$.
-      * *BPlusTree:* Persistência em disco.
   * **CircularBuffer:** Série Temporal.
   * **Priority EventQueue:** Eventos por prioridade.
 
@@ -65,9 +62,6 @@ python -m venv venv
 source venv/bin/activate # Linux/Mac
 # ou
 venv\Scripts\activate # Windows
-
-# Instalar dependências
-pip install -r requirements.txt
 ```
 
 **2. Estrutura de Diretórios**
@@ -135,11 +129,7 @@ A interface gráfica permite interagir diretamente com a simulação:
 ### Otimizações Implementadas
 
   * **AVL Tree:** Buscas em $O(\log n)$.
-  * **B+ Tree:** Persistência eficiente.
   * **Circular Buffer:** Série temporal em $O(1)$.
   * **Priority Event Queue:** Eventos ordenados por prioridade.
 
-### Limites
 
-  * Máx ~10.000 nós para melhor performance.
-  * Histórico: Últimos 1M registros.
